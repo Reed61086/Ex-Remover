@@ -1,0 +1,5 @@
+{
+  "name": "V1",
+  "description": "A powerful AI tool to find and remove a specific person from all your photos. Upload your photos, describe the person, and let Gemini create new, realistic memories for you.",
+  "requestFramePermissions": []
+}
