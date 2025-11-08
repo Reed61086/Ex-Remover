@@ -97,6 +97,7 @@ export const editImage = async (
     mimeType: string,
     prompt: string
 ): Promise<string> => {
+    // This function uses the advanced Gemini image model for Key Inpainting and Editing (KIE).
     try {
         const ai = getAi();
         const imagePart = {

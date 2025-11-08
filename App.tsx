@@ -147,22 +147,30 @@ const App: React.FC = () => {
 
     useEffect(() => {
         try {
+            const bonusApplied = localStorage.getItem('oneTimeCreditBonusApplied');
+            let currentCredits = 3; // Default
+            
             const savedCredits = localStorage.getItem('exRemoverCredits');
             if (savedCredits !== null) {
                 const parsedCredits = parseInt(savedCredits, 10);
                 if (!isNaN(parsedCredits) && parsedCredits >= 0) {
-                    setCredits(parsedCredits);
-                } else {
-                    localStorage.setItem('exRemoverCredits', '3');
-                    setCredits(3);
+                    currentCredits = parsedCredits;
                 }
+            }
+
+            if (!bonusApplied) {
+                const newTotal = currentCredits + 3;
+                setCredits(newTotal);
+                localStorage.setItem('exRemoverCredits', newTotal.toString());
+                localStorage.setItem('oneTimeCreditBonusApplied', 'true');
             } else {
-                localStorage.setItem('exRemoverCredits', '3');
-                setCredits(3);
+                setCredits(currentCredits);
+                 // Ensure localStorage is consistent if it was invalid before
+                localStorage.setItem('exRemoverCredits', currentCredits.toString());
             }
         } catch (error) {
-            console.error('Failed to access localStorage for credits:', error);
-            setCredits(3);
+            console.error('Failed to initialize credits from localStorage:', error);
+            setCredits(3); // Fallback to default in case of any error
         }
     }, []);
 
