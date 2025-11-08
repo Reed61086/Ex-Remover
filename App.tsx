@@ -36,7 +36,7 @@ const dataURLtoBlob = (dataurl: string): Blob | null => {
 }
 
 const createRemovalPrompt = (description: string): string => {
-    return `Initiate a Key Inpainting and Editing (KIE) operation. The target for removal is defined by the following detailed facial and head structure description: "${description}". Execute a complete inpainting of the area occupied by this person. Your primary task is to reconstruct the background with photorealistic detail, ensuring seamless integration with the surrounding environment. The final image must be free of any artifacts, distortions, or remnants of the removed person, appearing as if they were never there.`;
+    return `**CRITICAL INSTRUCTION: ADVANCED INPAINTING REQUIRED.** You are an expert-level photo restoration AI. Your task is to perform a high-fidelity inpainting operation based on the following subject description: "${description}". **Action:** Completely REMOVE the specified person. **Method:** Analyze the surrounding pixels, textures, lighting, and perspective to reconstruct the background behind the person with absolute photorealism. The final output MUST be seamless. There should be NO blur, NO smudging, NO artifacts, and NO ghosting. The edited area must be indistinguishable from the original, untouched parts of the image. Treat this as a professional photo editing task where the goal is a perfect, undetectable removal.`;
 };
 
 const trackInfluencerCredit = (id: string) => {
@@ -169,6 +169,13 @@ const App: React.FC = () => {
             if (!secondBonusApplied) {
                 creditsValue += 3;
                 localStorage.setItem('oneTimeUserRequestBonus', 'true');
+            }
+            
+            // Apply the third one-time bonus for KIE feedback.
+            const thirdBonusApplied = localStorage.getItem('kieApiFrustrationBonusApplied');
+            if (!thirdBonusApplied) {
+                creditsValue += 3;
+                localStorage.setItem('kieApiFrustrationBonusApplied', 'true');
             }
 
             setCredits(creditsValue);
