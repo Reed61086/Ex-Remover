@@ -35,10 +35,6 @@ const dataURLtoBlob = (dataurl: string): Blob | null => {
     return new Blob([u8arr], {type:mime});
 }
 
-const createRemovalPrompt = (description: string): string => {
-    return `**CRITICAL INSTRUCTION: ADVANCED INPAINTING REQUIRED.** You are an expert-level photo restoration AI. Your task is to perform a high-fidelity inpainting operation based on the following subject description: "${description}". **Action:** Completely REMOVE the specified person. **Method:** Analyze the surrounding pixels, textures, lighting, and perspective to reconstruct the background behind the person with absolute photorealism. The final output MUST be seamless. There should be NO blur, NO smudging, NO artifacts, and NO ghosting. The edited area must be indistinguishable from the original, untouched parts of the image. Treat this as a professional photo editing task where the goal is a perfect, undetectable removal.`;
-};
-
 const trackInfluencerCredit = (id: string) => {
     if (!id) return;
     try {
@@ -147,7 +143,6 @@ const App: React.FC = () => {
 
     useEffect(() => {
         try {
-            // Start with a default, or load from localStorage if available and valid.
             let creditsValue = 3;
             const savedCredits = localStorage.getItem('exRemoverCredits');
             if (savedCredits !== null) {
@@ -157,29 +152,31 @@ const App: React.FC = () => {
                 }
             }
 
-            // Apply the original one-time bonus for new users if it hasn't been applied.
-            const firstBonusApplied = localStorage.getItem('oneTimeCreditBonusApplied');
-            if (!firstBonusApplied) {
-                creditsValue += 3;
-                localStorage.setItem('oneTimeCreditBonusApplied', 'true');
-            }
+            // Apply one-time bonuses for user loyalty and feedback
+            const bonusKeys = [
+                'oneTimeCreditBonusApplied',
+                'oneTimeUserRequestBonus',
+                'kieApiFrustrationBonusApplied',
+                'serviceFailureRefundBonusApplied',
+                'kieApiSwitchBonusApplied' // New bonus for this update
+            ];
             
-            // Apply the second one-time bonus (as you requested) if it hasn't been applied.
-            const secondBonusApplied = localStorage.getItem('oneTimeUserRequestBonus');
-            if (!secondBonusApplied) {
-                creditsValue += 3;
-                localStorage.setItem('oneTimeUserRequestBonus', 'true');
-            }
-            
-            // Apply the third one-time bonus for KIE feedback.
-            const thirdBonusApplied = localStorage.getItem('kieApiFrustrationBonusApplied');
-            if (!thirdBonusApplied) {
-                creditsValue += 3;
-                localStorage.setItem('kieApiFrustrationBonusApplied', 'true');
+            const creditBonuses: { [key: string]: number } = {
+                'oneTimeCreditBonusApplied': 3,
+                'oneTimeUserRequestBonus': 3,
+                'kieApiFrustrationBonusApplied': 3,
+                'serviceFailureRefundBonusApplied': 2,
+                'kieApiSwitchBonusApplied': 4 // 4 credits for switching to KIE API
+            };
+
+            for (const key of bonusKeys) {
+                 if (!localStorage.getItem(key)) {
+                    creditsValue += creditBonuses[key] || 0;
+                    localStorage.setItem(key, 'true');
+                }
             }
 
             setCredits(creditsValue);
-            // Always save the final calculated value back to ensure consistency.
             localStorage.setItem('exRemoverCredits', creditsValue.toString());
         } catch (error) {
             console.error('Failed to initialize credits from localStorage:', error);
@@ -260,7 +257,6 @@ const App: React.FC = () => {
         }
         if (acceptedFiles.length === 0) return;
         
-        // Reset everything except influencerId when new files are added
         setImages([]);
         setTargetDescription("");
         setError(null);
@@ -319,13 +315,14 @@ const App: React.FC = () => {
             return;
         }
 
-        if (images.length > credits) {
-            setError(`You need ${images.length} credit(s) for this job, but you only have ${credits}. Please buy more.`);
+        const creditsNeeded = images.length * 4; // 4 credits per image
+        if (creditsNeeded > credits) {
+            setError(`You need ${creditsNeeded} credit(s) for this job, but you only have ${credits}. Please buy more.`);
             setIsPaymentModalOpen(true);
             return;
         }
         
-        setCredits(prev => prev - images.length);
+        setCredits(prev => prev - creditsNeeded);
         setStep('processing');
         setError(null);
         
@@ -337,17 +334,14 @@ const App: React.FC = () => {
                 
                 if (personPresent) {
                     setImages(prev => prev.map(img => img.id === image.id ? { ...img, status: 'processing' } : img));
-                    const fullPrompt = createRemovalPrompt(targetDescription);
-                    const resultUrl = await editImage(base64Data, image.file.type, fullPrompt);
+                    const resultUrl = await editImage(image.file, targetDescription);
                     setImages(prev => prev.map(img => img.id === image.id ? { ...img, status: 'done', processedUrl: resultUrl } : img));
                 } else {
                     setImages(prev => prev.map(img => img.id === image.id ? { ...img, status: 'person_not_found' } : img));
                 }
             } catch (e) {
                 const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
-                if (errorMessage.includes('billing') || errorMessage.includes('quota')) {
-                    setCredits(prev => prev + 1); // Refund credit on billing/quota failure
-                }
+                setCredits(prev => prev + 4); // Refund 4 credits on any failure
                 setImages(prev => prev.map(img => img.id === image.id ? { ...img, status: 'failed', error: errorMessage } : img));
             }
         }
@@ -359,7 +353,7 @@ const App: React.FC = () => {
                 ? { ...img, status: 'done', processedUrl: img.originalUrl } 
                 : img
         ));
-        setCredits(prev => prev + 1);
+        setCredits(prev => prev + 4); // Refund credits since no processing was needed.
     };
 
     const handleRetryIdentification = (imageId: string) => {
@@ -367,12 +361,12 @@ const App: React.FC = () => {
     };
 
     const handleStartReverify = (imageId: string) => {
-        if (credits < 1) {
-            setError("You need 1 credit to fix this image. Please buy more.");
+        if (credits < 4) {
+            setError("You need 4 credits to fix this image. Please buy more.");
             setIsPaymentModalOpen(true);
             return;
         }
-        setCredits(prev => prev - 1);
+        setCredits(prev => prev - 4);
         setRetryingImageId(imageId);
     };
 
@@ -390,50 +384,37 @@ const App: React.FC = () => {
             const base64Data = await fileToBase64(image.file);
             const specificDescription = await identifyPersonAt(base64Data, image.file.type, naturalX, naturalY);
             
-            const promptForThisImage = createRemovalPrompt(specificDescription);
-            const resultUrl = await editImage(base64Data, image.file.type, promptForThisImage);
+            const resultUrl = await editImage(image.file, specificDescription);
             setImages(prev => prev.map(i => i.id === image.id ? { ...i, status: 'done', processedUrl: resultUrl } : i));
 
             const newAugmentedDescription = `${targetDescription}\n\n[Additional detail from another photo]: ${specificDescription}`;
             setTargetDescription(newAugmentedDescription);
 
-            setImages(currentImages => {
-                const imagesToReverify = currentImages.filter(img => img.status === 'person_not_found');
-                
-                const reverify = async () => {
-                    for (const imageToReverify of imagesToReverify) {
-                        setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'verifying' } : img));
-                        try {
-                            const reverifyBase64 = await fileToBase64(imageToReverify.file);
-                            const personPresent = await isPersonInImage(reverifyBase64, imageToReverify.file.type, newAugmentedDescription);
-                            
-                            if (personPresent) {
-                                setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'processing' } : img));
-                                const removalPrompt = createRemovalPrompt(newAugmentedDescription);
-                                const reverifyResultUrl = await editImage(reverifyBase64, imageToReverify.file.type, removalPrompt);
-                                setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'done', processedUrl: reverifyResultUrl } : img));
-                            } else {
-                                setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'person_not_found' } : img));
-                            }
-                        } catch (err) {
-                            const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
-                            if (errorMessage.includes('billing') || errorMessage.includes('quota')) {
-                                setCredits(prev => prev + 1); // Refund credit on billing/quota failure
-                            }
-                            setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'failed', error: errorMessage } : img));
-                        }
+            // This part is complex and should be handled carefully. Re-verifying all 'not_found' images automatically.
+            const imagesToReverify = images.filter(img => img.status === 'person_not_found');
+            for (const imageToReverify of imagesToReverify) {
+                setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'verifying' } : img));
+                try {
+                    const reverifyBase64 = await fileToBase64(imageToReverify.file);
+                    const personPresent = await isPersonInImage(reverifyBase64, imageToReverify.file.type, newAugmentedDescription);
+                    
+                    if (personPresent) {
+                        setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'processing' } : img));
+                        const reverifyResultUrl = await editImage(imageToReverify.file, newAugmentedDescription);
+                        setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'done', processedUrl: reverifyResultUrl } : img));
+                    } else {
+                        setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'person_not_found' } : img));
                     }
-                };
-                
-                reverify();
-                return currentImages;
-            });
+                } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
+                    setCredits(prev => prev + 4); // Refund credit
+                    setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'failed', error: errorMessage } : img));
+                }
+            }
 
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
-            if (errorMessage.includes('billing') || errorMessage.includes('quota')) {
-                setCredits(prev => prev + 1); // Refund credit
-            }
+            setCredits(prev => prev + 4); // Refund credit for the main retry image
             setImages(prev => prev.map(i => i.id === image.id ? { ...i, status: 'failed', error: errorMessage } : i));
         }
     };
@@ -528,7 +509,7 @@ const App: React.FC = () => {
 
             {images.length > 0 && (
                 <>
-                    <p className="text-text-secondary">{images.length} image{images.length > 1 ? 's' : ''} selected. (1 Credit per image)</p>
+                    <p className="text-text-secondary">{images.length} image{images.length > 1 ? 's' : ''} selected. (4 Credits per image)</p>
                      <div className="w-full grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                         {images.slice(0, 12).map((img, index) => (
                             <img key={img.id} src={img.originalUrl} alt={`preview ${index}`} className="w-full h-20 object-cover rounded-md shadow-sm" />
@@ -577,7 +558,7 @@ const App: React.FC = () => {
             </div>
             <button onClick={startProcessing} disabled={!targetDescription.trim() || isIdentifying} className="w-full flex items-center justify-center btn-primary text-white font-bold py-3 px-4 rounded-lg disabled:bg-none disabled:bg-base-300 disabled:text-gray-500 disabled:cursor-not-allowed">
                 <RemoveIcon />
-                {`Start Removing (${images.length} Credit${images.length > 1 ? 's' : ''})`}
+                {`Start Removing (${images.length * 4} Credit${images.length * 4 === 1 ? '' : 's'})`}
             </button>
         </div>
     );
@@ -633,7 +614,7 @@ const App: React.FC = () => {
                                     className="bg-black/50 backdrop-blur-sm hover:bg-black/80 text-white text-xs font-semibold py-1.5 px-3 rounded-full transition-all duration-200 shadow-lg border border-white/20"
                                     title="If the removal wasn't perfect, click here to try again."
                                 >
-                                    Fix This (1 Credit)
+                                    Fix This (4 Credits)
                                 </button>
                             </div>
                         )}
