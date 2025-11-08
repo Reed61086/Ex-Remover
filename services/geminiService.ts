@@ -10,6 +10,18 @@ const getAi = () => {
     return new GoogleGenAI({ apiKey });
 };
 
+const handleApiError = (error: unknown, context: string): Error => {
+    console.error(`Error calling Gemini for ${context}:`, error);
+    if (error instanceof Error) {
+        if (error.message.includes('RESOURCE_EXHAUSTED') || error.message.includes('quota')) {
+             return new Error(`The service has exceeded its free usage limit. To continue using the app, the developer must enable billing. For more info, visit: https://ai.google.dev/gemini-api/docs/billing`);
+        }
+        return new Error(`Gemini API error during ${context}: ${error.message}`);
+    }
+    return new Error(`An unknown error occurred during ${context}.`);
+}
+
+
 export const isPersonInImage = async (
     base64ImageData: string,
     mimeType: string,
@@ -42,11 +54,7 @@ export const isPersonInImage = async (
         return text === 'true';
 
     } catch (error) {
-        console.error("Error calling Gemini for person verification:", error);
-        if (error instanceof Error) {
-            throw new Error(`Gemini API error during person verification: ${error.message}`);
-        }
-        throw new Error('An unknown error occurred during person verification.');
+        throw handleApiError(error, 'person verification');
     }
 };
 
@@ -79,11 +87,7 @@ export const identifyPersonAt = async (
         return description;
 
     } catch (error) {
-        console.error("Error calling Gemini for identification:", error);
-        if (error instanceof Error) {
-            throw new Error(`Failed to identify person via Gemini: ${error.message}`);
-        }
-        throw new Error("An unknown error occurred during identification.");
+        throw handleApiError(error, 'identification');
     }
 };
 
@@ -122,10 +126,6 @@ export const editImage = async (
         throw new Error("No image data was found in the Gemini API response.");
 
     } catch (error) {
-        console.error("Error calling Gemini for image editing:", error);
-        if (error instanceof Error) {
-            throw new Error(`Failed to edit image via Gemini: ${error.message}`);
-        }
-        throw new Error("An unknown error occurred while editing the image.");
+        throw handleApiError(error, 'image editing');
     }
 };
