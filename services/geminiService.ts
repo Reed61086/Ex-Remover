@@ -1,17 +1,11 @@
-import { KIE_API_BASE_URL } from "../config/apiConfig";
+import { GoogleGenAI, Modality } from "@google/genai";
 
-// --- IMPORTANT ---
-// This file has been converted to use a generic API service (kie.ai).
-// The following functions are placeholders. You MUST update the `fetch` calls
-// with the correct endpoints, headers, and body structures according to the
-// kie.ai API documentation.
-
-const getApiKey = (): string => {
-    const apiKey = process.env.KIE_API_KEY;
+const getAi = () => {
+    const apiKey = process.env.API_KEY;
     if (!apiKey) {
-        throw new Error("The KIE_API_KEY environment variable is missing. Please add it in the Secrets tab (🔑).");
+        throw new Error("The API_KEY environment variable is missing. Please add it in the Secrets tab (🔑).");
     }
-    return apiKey;
+    return new GoogleGenAI({ apiKey });
 };
 
 export const isPersonInImage = async (
@@ -19,51 +13,39 @@ export const isPersonInImage = async (
     mimeType: string,
     personDescription: string
 ): Promise<boolean> => {
-    const apiKey = getApiKey();
-    console.log("Attempting to verify person with a generic API call.");
-
-    // TODO: Replace this with the actual kie.ai API call.
-    // You need to know the correct endpoint and how to send the data.
-    const endpoint = `${KIE_API_BASE_URL}/verify-person`;
-    const body = JSON.stringify({
-        image: {
-            mimeType: mimeType,
-            data: base64ImageData,
-        },
-        description: personDescription,
-    });
-
-    // This is a placeholder.
-    console.warn("isPersonInImage is not implemented. Defaulting to 'true'. You must implement the API call in services/apiService.ts.");
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-    return true; 
-    
-    /*
-    // --- EXAMPLE IMPLEMENTATION ---
     try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
+        const ai = getAi();
+        const imagePart = {
+            inlineData: {
+                mimeType: mimeType,
+                data: base64ImageData,
             },
-            body: body,
+        };
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    imagePart,
+                    { text: `Analyze the image. A person is described as: "${personDescription}". Is this specific person present in the image? Please answer with only the word "true" or "false".` }
+                ]
+            },
         });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Verification request failed');
+        
+        const text = response.text.trim().toLowerCase();
+        if (text !== 'true' && text !== 'false') {
+            console.warn(`Unexpected response from isPersonInImage: ${text}. Defaulting to true.`);
+            return true; // Default to true to attempt removal if parsing fails.
         }
-
-        const result = await response.json();
-        // Assuming the API returns something like { personFound: true }
-        return result.personFound === true;
+        return text === 'true';
 
     } catch (error) {
-        console.error("Error calling custom API for person verification:", error);
-        return false;
+        console.error("Error calling Gemini for person verification:", error);
+        if (error instanceof Error) {
+            throw new Error(`Gemini API error during person verification: ${error.message}`);
+        }
+        throw new Error('An unknown error occurred during person verification.');
     }
-    */
 };
 
 export const identifyPersonAt = async (
@@ -72,53 +54,35 @@ export const identifyPersonAt = async (
     x: number,
     y: number
 ): Promise<string> => {
-    const apiKey = getApiKey();
-    console.log("Attempting to identify person with a generic API call.");
-
-    // TODO: Replace this with the actual kie.ai API call.
-    const endpoint = `${KIE_API_BASE_URL}/identify-person`;
-     const body = JSON.stringify({
-        image: {
-            mimeType: mimeType,
-            data: base64ImageData,
-        },
-        coordinates: { x, y },
-    });
-
-    // This is a placeholder.
-    console.warn("identifyPersonAt is not implemented. Returning a placeholder description. You must implement the API call in services/apiService.ts.");
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-    return "A person identified at coordinates X, Y. (This is a placeholder - please implement the actual API call in services/apiService.ts)";
-    
-    /*
-    // --- EXAMPLE IMPLEMENTATION ---
     try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
+        const ai = getAi();
+        const imagePart = {
+            inlineData: {
+                mimeType: mimeType,
+                data: base64ImageData,
             },
-            body: body,
+        };
+
+        const prompt = `In the provided image, a user has clicked at coordinates (x=${x}, y=${y}). Please provide a detailed, objective description of the person at or nearest to these coordinates. Focus on visible characteristics like clothing (color, style), hair (color, style, length), accessories (glasses, hats, jewelry), and general build. Do not guess their name, age, or ethnicity. The description should be precise enough to uniquely identify this individual in a group photo. For example: "Person wearing a red t-shirt, blue jeans, short brown hair, and black glasses."`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [imagePart, { text: prompt }] },
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Identification request failed');
+        const description = response.text.trim();
+        if (!description) {
+            throw new Error("Gemini did not return a description.");
         }
-
-        const result = await response.json();
-        // Assuming the API returns a description like { description: "..." }
-        return result.description || "No description found.";
+        return description;
 
     } catch (error) {
-        console.error("Error calling custom API for identification:", error);
+        console.error("Error calling Gemini for identification:", error);
         if (error instanceof Error) {
-            throw new Error(`Failed to identify person: ${error.message}`);
+            throw new Error(`Failed to identify person via Gemini: ${error.message}`);
         }
         throw new Error("An unknown error occurred during identification.");
     }
-    */
 };
 
 
@@ -127,53 +91,39 @@ export const editImage = async (
     mimeType: string,
     prompt: string
 ): Promise<string> => {
-    const apiKey = getApiKey();
-    console.log("Attempting to edit image with a generic API call.");
-
-    // TODO: Replace this with the actual kie.ai API call.
-    const endpoint = `${KIE_API_BASE_URL}/edit-image`;
-    const body = JSON.stringify({
-        image: {
-            mimeType: mimeType,
-            data: base64ImageData,
-        },
-        prompt: prompt,
-    });
-    
-    // This is a placeholder. It throws an error to force you to implement it.
-    throw new Error("editImage is not implemented. You must update the `fetch` call in services/apiService.ts with your kie.ai API details.");
-
-    /*
-    // --- EXAMPLE IMPLEMENTATION ---
     try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
+        const ai = getAi();
+        const imagePart = {
+            inlineData: {
+                data: base64ImageData,
+                mimeType: mimeType,
             },
-            body: body,
+        };
+        const textPart = { text: prompt };
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [imagePart, textPart] },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Image editing request failed');
-        }
-        
-        const result = await response.json();
-        // Assuming the API returns a base64 string and mime type.
-        if (result.imageData && result.mimeType) {
-            return `data:${result.mimeType};base64,${result.imageData}`;
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
+                const base64ImageBytes: string = part.inlineData.data;
+                const imageMimeType: string = part.inlineData.mimeType;
+                return `data:${imageMimeType};base64,${base64ImageBytes}`;
+            }
         }
 
-        throw new Error("No image data was found in the API response.");
+        throw new Error("No image data was found in the Gemini API response.");
 
     } catch (error) {
-        console.error("Error calling custom API:", error);
+        console.error("Error calling Gemini for image editing:", error);
         if (error instanceof Error) {
-            throw new Error(`Failed to edit image: ${error.message}`);
+            throw new Error(`Failed to edit image via Gemini: ${error.message}`);
         }
         throw new Error("An unknown error occurred while editing the image.");
     }
-    */
 };
