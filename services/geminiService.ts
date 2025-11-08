@@ -41,7 +41,7 @@ export const isPersonInImage = async (
             contents: {
                 parts: [
                     imagePart,
-                    { text: `Analyze the image. A person is described as: "${personDescription}". Is this specific person present in the image? Please answer with only the word "true" or "false".` }
+                    { text: `Analyze the image. A person is described by their facial features as: "${personDescription}". Is this specific person present in the image? Please answer with only the word "true" or "false".` }
                 ]
             },
         });
@@ -73,7 +73,7 @@ export const identifyPersonAt = async (
             },
         };
 
-        const prompt = `In the provided image, a user has clicked at coordinates (x=${x}, y=${y}). Please provide a detailed, objective description of the person at or nearest to these coordinates. Focus on visible characteristics like clothing (color, style), hair (color, style, length), accessories (glasses, hats, jewelry), and general build. Do not guess their name, age, or ethnicity. The description should be precise enough to uniquely identify this individual in a group photo. For example: "Person wearing a red t-shirt, blue jeans, short brown hair, and black glasses."`;
+        const prompt = `Analyze the person nearest to coordinates (x=${x}, y=${y}). Provide a description focusing ONLY on permanent facial features and head structure. Describe their face shape, eye color and shape, nose, mouth, and any unique, permanent facial markings. CRUCIALLY, DO NOT mention clothing, glasses, hats, or any temporary items. The description must be robust enough to identify the same person even if they change their outfit. For example: "Person with an oval face, high cheekbones, thin lips, and almond-shaped blue eyes."`;
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',

@@ -36,7 +36,7 @@ const dataURLtoBlob = (dataurl: string): Blob | null => {
 }
 
 const createRemovalPrompt = (description: string): string => {
-    return `Based on the following detailed description, please identify and completely remove this person from the image, from head to toe: "${description}". Ensure their entire body, including limbs, feet, and any shadows they cast, is removed. After removing the person, realistically reconstruct the background and any objects or people that were behind them. The final image should look completely natural and authentic, as if the person was never there. There should be no empty spaces, artifacts, or distortions where the person used to be.`;
+    return `Initiate a Key Inpainting and Editing (KIE) operation. The target for removal is defined by the following detailed facial and head structure description: "${description}". Execute a complete inpainting of the area occupied by this person. Your primary task is to reconstruct the background with photorealistic detail, ensuring seamless integration with the surrounding environment. The final image must be free of any artifacts, distortions, or remnants of the removed person, appearing as if they were never there.`;
 };
 
 const trackInfluencerCredit = (id: string) => {
@@ -332,6 +332,9 @@ const App: React.FC = () => {
                 }
             } catch (e) {
                 const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
+                if (errorMessage.includes('billing') || errorMessage.includes('quota')) {
+                    setCredits(prev => prev + 1); // Refund credit on billing/quota failure
+                }
                 setImages(prev => prev.map(img => img.id === image.id ? { ...img, status: 'failed', error: errorMessage } : img));
             }
         }
@@ -401,6 +404,9 @@ const App: React.FC = () => {
                             }
                         } catch (err) {
                             const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
+                            if (errorMessage.includes('billing') || errorMessage.includes('quota')) {
+                                setCredits(prev => prev + 1); // Refund credit on billing/quota failure
+                            }
                             setImages(prev => prev.map(img => img.id === imageToReverify.id ? { ...img, status: 'failed', error: errorMessage } : img));
                         }
                     }
@@ -412,6 +418,9 @@ const App: React.FC = () => {
 
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
+            if (errorMessage.includes('billing') || errorMessage.includes('quota')) {
+                setCredits(prev => prev + 1); // Refund credit
+            }
             setImages(prev => prev.map(i => i.id === image.id ? { ...i, status: 'failed', error: errorMessage } : i));
         }
     };
