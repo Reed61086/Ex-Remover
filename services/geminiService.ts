@@ -1,9 +1,11 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
 const getAi = () => {
+    // This now exclusively uses the API key from the environment secrets.
+    // It's the developer's responsibility to set this up in their hosting provider (e.g., Vercel, Netlify, or GitHub Codespaces secrets).
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-        throw new Error("The API_KEY environment variable is missing. Please add it in the Secrets tab (🔑).");
+        throw new Error("API_KEY is not configured in the application's environment. The developer needs to set this up in their hosting provider's settings.");
     }
     return new GoogleGenAI({ apiKey });
 };
@@ -34,8 +36,8 @@ export const isPersonInImage = async (
         
         const text = response.text.trim().toLowerCase();
         if (text !== 'true' && text !== 'false') {
-            console.warn(`Unexpected response from isPersonInImage: ${text}. Defaulting to true.`);
-            return true; // Default to true to attempt removal if parsing fails.
+            // Throw an error for unexpected responses to prevent incorrect processing.
+            throw new Error(`Unexpected response from AI when verifying person's presence. Got: "${response.text}". Expected "true" or "false".`);
         }
         return text === 'true';
 

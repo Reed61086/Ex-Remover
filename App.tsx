@@ -140,7 +140,7 @@ const App: React.FC = () => {
     const [influencerId, setInfluencerId] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const processedImageIds = useRef(new Set<string>());
-
+    
     useEffect(() => {
         setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent));
     }, []);
@@ -644,17 +644,14 @@ const App: React.FC = () => {
         if (!isPaymentModalOpen) return null;
 
         const creditPackages = [
-            { credits: 5, price: 5, bestValue: false, link: 'https://buy.stripe.com/bJe28r3M861K8lJ3oC2go02' },
-            { credits: 15, price: 10, bestValue: true, link: 'https://buy.stripe.com/14AaEX6Ykbm4fOb9N02go03' },
+            { credits: 5, price: 5, bestValue: false, link: 'PASTE_YOUR_STRIPE_LINK_FOR_5_CREDITS_HERE' },
+            { credits: 15, price: 10, bestValue: true, link: 'PASTE_YOUR_STRIPE_LINK_FOR_15_CREDITS_HERE' },
         ];
 
+        const isPaymentConfigured = creditPackages.every(p => !p.link.startsWith('PASTE_YOUR'));
 
         const handlePurchase = (pkg: typeof creditPackages[0]) => {
-            if (pkg.link.startsWith('PASTE_YOUR')) {
-                setError("This payment link is not configured. Please create it in your Stripe dashboard and add the full URL to App.tsx.");
-                setIsPaymentModalOpen(false);
-                return;
-            }
+            if (!isPaymentConfigured) return;
             localStorage.setItem('pendingPurchase', pkg.credits.toString());
             window.open(pkg.link, '_blank');
         };
@@ -669,12 +666,19 @@ const App: React.FC = () => {
                         </button>
                     </div>
                     <div className="p-6 space-y-4">
+                        {!isPaymentConfigured && (
+                             <div className="bg-yellow-500/10 border border-yellow-500/50 text-yellow-300 px-4 py-3 rounded-lg text-sm" role="alert">
+                                <p className="font-bold">Attention Developer</p>
+                                <p>Payment links are not configured. Please add your Stripe product links in <strong>App.tsx</strong> to enable purchases.</p>
+                            </div>
+                        )}
                         <p className="text-text-secondary">Choose a package to continue creating new memories.</p>
                         {creditPackages.map((pkg) => (
                             <button
                                 key={pkg.credits}
                                 onClick={() => handlePurchase(pkg)}
-                                className={`w-full flex justify-between items-center text-left p-4 rounded-lg border-2 transition-colors duration-200 relative ${pkg.bestValue ? 'border-brand-primary bg-brand-primary/10 hover:bg-brand-primary/20' : 'border-base-300 bg-base-300/50 hover:bg-base-300'}`}
+                                disabled={!isPaymentConfigured}
+                                className={`w-full flex justify-between items-center text-left p-4 rounded-lg border-2 transition-all duration-200 relative ${pkg.bestValue ? 'border-brand-primary bg-brand-primary/10 hover:bg-brand-primary/20' : 'border-base-300 bg-base-300/50 hover:bg-base-300'} ${!isPaymentConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <div>
                                     <p className="font-bold text-lg">{pkg.credits} Credits</p>
@@ -713,13 +717,6 @@ const App: React.FC = () => {
                             className="btn-primary text-white font-bold py-2 px-5 rounded-full text-sm ml-2"
                         >
                             Buy More
-                        </button>
-                        <button
-                            onClick={() => setCredits(prev => prev + 999)}
-                            className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-full text-xs transition-colors duration-300 ml-2"
-                            title="Dev only: Add 999 credits for testing"
-                        >
-                            DEV +999
                         </button>
                     </div>
                 </header>
