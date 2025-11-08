@@ -147,30 +147,36 @@ const App: React.FC = () => {
 
     useEffect(() => {
         try {
-            const bonusApplied = localStorage.getItem('oneTimeCreditBonusApplied');
-            let currentCredits = 3; // Default
-            
+            // Start with a default, or load from localStorage if available and valid.
+            let creditsValue = 3;
             const savedCredits = localStorage.getItem('exRemoverCredits');
             if (savedCredits !== null) {
-                const parsedCredits = parseInt(savedCredits, 10);
-                if (!isNaN(parsedCredits) && parsedCredits >= 0) {
-                    currentCredits = parsedCredits;
+                const parsed = parseInt(savedCredits, 10);
+                if (!isNaN(parsed) && parsed >= 0) {
+                    creditsValue = parsed;
                 }
             }
 
-            if (!bonusApplied) {
-                const newTotal = currentCredits + 3;
-                setCredits(newTotal);
-                localStorage.setItem('exRemoverCredits', newTotal.toString());
+            // Apply the original one-time bonus for new users if it hasn't been applied.
+            const firstBonusApplied = localStorage.getItem('oneTimeCreditBonusApplied');
+            if (!firstBonusApplied) {
+                creditsValue += 3;
                 localStorage.setItem('oneTimeCreditBonusApplied', 'true');
-            } else {
-                setCredits(currentCredits);
-                 // Ensure localStorage is consistent if it was invalid before
-                localStorage.setItem('exRemoverCredits', currentCredits.toString());
             }
+            
+            // Apply the second one-time bonus (as you requested) if it hasn't been applied.
+            const secondBonusApplied = localStorage.getItem('oneTimeUserRequestBonus');
+            if (!secondBonusApplied) {
+                creditsValue += 3;
+                localStorage.setItem('oneTimeUserRequestBonus', 'true');
+            }
+
+            setCredits(creditsValue);
+            // Always save the final calculated value back to ensure consistency.
+            localStorage.setItem('exRemoverCredits', creditsValue.toString());
         } catch (error) {
             console.error('Failed to initialize credits from localStorage:', error);
-            setCredits(3); // Fallback to default in case of any error
+            setCredits(3); // Fallback to a safe default.
         }
     }, []);
 
